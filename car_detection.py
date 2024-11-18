@@ -1,17 +1,33 @@
-import cv2
+"""
+This script demonstrates how to detect moving vehicles in a parking lot using YOLOv11 and OpenCV.
+"""
 import os
-from ultralytics import YOLO
 import logging
 from datetime import datetime
-import numpy as np
 from pathlib import Path
 import time
 import queue
 import threading
-from typing import Optional, Tuple, List
 from collections import deque
+from typing import Optional, Tuple, List
+import cv2
+from ultralytics import YOLO
+import numpy as np
+
 
 class MovingVehicleDetector:
+    """
+    Class to detect moving vehicles in a parking lot using YOLOv11 and background subtraction.
+    
+    Args:
+        rtsp_url (str): RTSP stream URL for video capture
+        output_dir (str): Directory to save detected vehicle images
+        confidence_threshold (float): Minimum confidence threshold for YOLO detections
+        min_detection_interval (float): Minimum time between saved detections
+        image_size (Tuple[int, int]): Standard size for YOLO input images
+        motion_threshold (float): Minimum fraction of pixels that must show motion
+        motion_history (int): Number of frames to keep for motion analysis
+    """
     def __init__(
         self,
         rtsp_url: str,
@@ -130,7 +146,13 @@ class MovingVehicleDetector:
     def detect_motion(self, frame: np.ndarray) -> Tuple[bool, np.ndarray]:
         """
         Detect motion in frame using background subtraction
-        Returns: (motion_detected, motion_mask)
+
+        Args:
+            frame: Input frame from video stream
+            
+        Returns:
+            motion_detected: True if motion is detected in the frame
+            fg_mask: Foreground mask showing motion areas
         """
         # Apply background subtraction
         fg_mask = self.bg_subtractor.apply(frame)
@@ -157,7 +179,12 @@ class MovingVehicleDetector:
     def is_vehicle_moving(self, bbox: List[int], motion_mask: np.ndarray) -> bool:
         """
         Determine if a detected vehicle is moving based on the motion mask
+        
+        Args:
         bbox: [x1, y1, x2, y2]
+        motion_mask: Foreground mask showing motion areas
+        
+        Returns: True if the vehicle is moving
         """
         x1, y1, x2, y2 = map(int, bbox)
         roi = motion_mask[y1:y2, x1:x2]
@@ -210,7 +237,13 @@ class MovingVehicleDetector:
                 self.logger.error(f"Frame processing error: {e}")
     
     def _save_detection(self, frame: np.ndarray, result, motion_mask: np.ndarray) -> None:
-        """Save detected frame with timestamp and motion visualization"""
+        """Save detected frame with timestamp and motion visualization
+        
+        Args:
+            frame: Original frame from video stream
+            result: YOLO detection result
+            motion_mask: Foreground mask showing motion areas
+        """
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             
@@ -236,8 +269,11 @@ class MovingVehicleDetector:
             self.logger.error(f"Error saving detection: {e}")
 
 def main():
+    """
+    Main function to start detection
+    """
     # Configuration
-    rtsp_url = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@camerapi:8554/parking-lot-cam"  # Replace with your RTSP URL
+    rtsp_url = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@camerapi:8554/parking-lot-cam"
     output_dir = "vehicle_detections"
     
     # Initialize detector with optimized parameters for parking lot scenario
