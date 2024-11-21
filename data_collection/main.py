@@ -3,11 +3,11 @@ Entry point for the vehicle detection system.
 """
 import argparse
 import time
-from pathlib import Path
 from dotenv import load_dotenv
 
 from src.detector.vehicle_detector import MovingVehicleDetector
 from src.config.settings import DEFAULT_RTSP_URL, DEFAULT_OUTPUT_DIR
+
 
 def parse_args():
     """Parse command line arguments"""
@@ -33,6 +33,7 @@ def parse_args():
     )
     return parser.parse_args()
 
+
 def main():
     """Main function to start detection"""
     # Load environment variables from .env file
@@ -47,7 +48,7 @@ def main():
         output_dir=args.output_dir,
         debug_mode=args.debug,
         confidence_threshold=0.5,   # YOLO detection confidence
-        min_detection_interval=1.0, # Minimum time between saved detections
+        min_detection_interval=1.0,  # Minimum time between saved detections
         image_size=(640, 640),  # Standard YOLO input size
         # Adjust based on testing (3% of pixels showing motion)
         motion_threshold=0.03,
@@ -69,6 +70,7 @@ def main():
     finally:
         detector.stop_capture()
         print("Detection stopped successfully.")
+
 
 if __name__ == "__main__":
     main()

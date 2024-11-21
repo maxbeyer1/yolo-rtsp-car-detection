@@ -6,12 +6,12 @@ import logging
 import time
 import queue
 import threading
-import cv2
-import numpy as np
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 from roboflow import Roboflow
 from ultralytics import YOLO
+import cv2
+import numpy as np
 
 from src.detector.motion_detector import MotionDetector
 from src.detector.utils import create_car_folder, get_timestamp
@@ -23,15 +23,16 @@ from src.config.settings import (
     CAPTURE_RETRY_DELAY
 )
 
+
 class MovingVehicleDetector:
     """Class to detect moving vehicles in a parking lot using YOLOv11 and background subtraction."""
 
     def __init__(self, rtsp_url: str, output_dir: str, debug_mode: bool = False,
-        confidence_threshold: float = 0.5, min_detection_interval: float = 1.0,
-                
-        image_size: Tuple[int, int] = (640, 640),
-        motion_threshold: float = 0.03,
-        motion_history: int = 5):
+                 confidence_threshold: float = 0.5, min_detection_interval: float = 1.0,
+
+                 image_size: Tuple[int, int] = (640, 640),
+                 motion_threshold: float = 0.03,
+                 motion_history: int = 5):
         self.debug_mode = debug_mode
 
         # Initialize logging
@@ -45,7 +46,8 @@ class MovingVehicleDetector:
             ]
         )
         self.logger = logging.getLogger(__name__)
-        self.logger.info("Running in %s mode", ('debug' if debug_mode else 'production'))
+        self.logger.info("Running in %s mode",
+                         ('debug' if debug_mode else 'production'))
 
         # Configuration
         self.rtsp_url = rtsp_url
@@ -53,7 +55,7 @@ class MovingVehicleDetector:
         self.confidence_threshold = confidence_threshold
         self.min_detection_interval = min_detection_interval
         self.image_size = image_size
-        
+
         # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -75,9 +77,10 @@ class MovingVehicleDetector:
                 rf = Roboflow(api_key=os.getenv('ROBOFLOW_API_KEY'))
                 self.roboflow_project = rf.workspace(os.getenv('ROBOFLOW_WORKSPACE_ID'))\
                     .project(os.getenv('ROBOFLOW_PROJECT_ID'))
-                self.logger.info("Roboflow connection initialized successfully")
+                self.logger.info(
+                    "Roboflow connection initialized successfully")
             except Exception as e:
-                self.logger.error(f"Failed to initialize Roboflow: {e}")
+                self.logger.error("Failed to initialize Roboflow: %s", e)
 
         self.last_save_time = 0
         self.frame_queue = queue.Queue(maxsize=FRAME_QUEUE_SIZE)
@@ -152,7 +155,8 @@ class MovingVehicleDetector:
         while self.is_running:
             try:
                 frame = self.frame_queue.get(timeout=1.0)
-                motion_detected, motion_mask = self.motion_detector.detect_motion(frame)
+                motion_detected, motion_mask = self.motion_detector.detect_motion(
+                    frame)
 
                 if motion_detected:
                     results = self.model(frame, verbose=False)
@@ -187,8 +191,10 @@ class MovingVehicleDetector:
 
             if (self.current_car_folder is None or
                     (current_time - self.last_detection_time) > CAR_EVENT_TIMEOUT):
-                self.current_car_folder = create_car_folder(self.output_dir, timestamp)
-                self.logger.info("Started tracking new car event: %s", timestamp)
+                self.current_car_folder = create_car_folder(
+                    self.output_dir, timestamp)
+                self.logger.info(
+                    "Started tracking new car event: %s", timestamp)
 
             self.last_detection_time = current_time
 
@@ -198,13 +204,15 @@ class MovingVehicleDetector:
             annotated_frame = result.plot()
             motion_overlay = np.zeros_like(annotated_frame)
             motion_overlay[motion_mask > 0] = [0, 0, 255]
-            annotated_frame = cv2.addWeighted(annotated_frame, 1.0, motion_overlay, 0.3, 0)
+            annotated_frame = cv2.addWeighted(
+                annotated_frame, 1.0, motion_overlay, 0.3, 0)
 
-            anno_filename = self.current_car_folder / "annotated" / f"vehicle_{timestamp}_annotated.jpg"
+            anno_filename = self.current_car_folder / \
+                "annotated" / f"vehicle_{timestamp}_annotated.jpg"
             cv2.imwrite(str(anno_filename), annotated_frame)
 
             self.logger.info("Saved detection in %s: %s",
-                           self.current_car_folder.name, filename.name)
+                             self.current_car_folder.name, filename.name)
 
             if not self.debug_mode:
                 self._upload_to_roboflow(frame, timestamp)
@@ -218,13 +226,15 @@ class MovingVehicleDetector:
             return
 
         try:
-            image_path = str(self.current_car_folder / f"vehicle_{timestamp}.jpg")
+            image_path = str(self.current_car_folder /
+                             f"vehicle_{timestamp}.jpg")
             self.roboflow_project.upload(
                 image_path=image_path,
                 num_retry_uploads=3,
             )
-            self.logger.info("Successfully uploaded image %s to Roboflow", timestamp)
+            self.logger.info(
+                "Successfully uploaded image %s to Roboflow", timestamp)
 
         except Exception as e:
-            self.logger.error("Failed to upload image %s to Roboflow: %s", timestamp, e)
-
+            self.logger.error(
+                "Failed to upload image %s to Roboflow: %s", timestamp, e)

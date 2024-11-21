@@ -13,6 +13,7 @@ from src.config.settings import (
     MOTION_KERNEL_SIZE
 )
 
+
 class MotionDetector:
     def __init__(self, motion_threshold: float, motion_history: int):
         self.motion_threshold = motion_threshold
@@ -28,13 +29,15 @@ class MotionDetector:
         fg_mask = self.bg_subtractor.apply(frame)
         fg_mask = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)[1]
 
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, MOTION_KERNEL_SIZE)
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, MOTION_KERNEL_SIZE)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
 
         motion_fraction = np.sum(fg_mask > 0) / fg_mask.size
         self.motion_history.append(motion_fraction)
-        motion_detected = np.mean(list(self.motion_history)) > self.motion_threshold
+        motion_detected = np.mean(
+            list(self.motion_history)) > self.motion_threshold
 
         return motion_detected, fg_mask
 
