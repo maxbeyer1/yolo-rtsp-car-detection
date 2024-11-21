@@ -1,4 +1,12 @@
 {
+  // NEEDED for Intellisense to work with OpenCV
+  // VSCode will throw errors for cv2 functions without this
+  // Code will run fine regardless
   "pylint.args": ["--generated-members=cv2.*"],
-  "editor.formatOnSave": true
+
+  // Personal preferences
+  "editor.formatOnSave": true,
+  "files.exclude": {
+    "**/__pycache__": true
+  }
 }
