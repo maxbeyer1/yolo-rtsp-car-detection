@@ -236,4 +236,4 @@ pyrightconfig.json
 
 ### Project Specific ###
 # Ignore past detections
-vehicle_detections/*
+**/vehicle_detections/**/*

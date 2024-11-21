@@ -1,0 +1,3 @@
+"""
+Vehicle detection package initialization.
+"""
