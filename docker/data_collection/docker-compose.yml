@@ -1,20 +1,42 @@
 version: "3.8"
 
 services:
+  # Tailscale Sidecar Configuration
+  tailscale-vehicle-detector:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-vehicle-detector
+    hostname: vehicle-detector
+    environment:
+      - TS_AUTHKEY=tskey-auth-kK2Uh5amcj11CNTRL-z2wdFpWHuETaydRfToHWFTa8N8ZsWeSJ
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ./tailscale/config:/config
+      - ./tailscale/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    healthcheck:
+      test: ["CMD", "tailscale", "status"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: always
+
+  # Vehicle Detector Service
   vehicle-detector:
-    platform: linux/arm64 # Specify platform for M1 Mac
+    platform: linux/arm64
     build:
-      context: ../.. # Root of project
+      context: ../.. # This one stays as ../.. to reach the root
       dockerfile: docker/data_collection/Dockerfile
     container_name: vehicle-detector
-    network_mode: "host"
-    ipc: host # Required for Ultralytics as per guide
+    network_mode: service:tailscale-vehicle-detector
+    ipc: host
     volumes:
       - ../../data_collection/vehicle_detections:/app/vehicle_detections
       - ../../data_collection/logs:/app/logs
     restart: unless-stopped
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: "1.0"
-    #       memory: 2G
+    depends_on:
+      - tailscale-vehicle-detector

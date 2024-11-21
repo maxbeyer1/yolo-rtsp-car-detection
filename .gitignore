@@ -237,3 +237,6 @@ pyrightconfig.json
 ### Project Specific ###
 # Ignore past detections
 **/vehicle_detections/**/*
+
+# Ignore Tailscale Docker sidecar config and state files
+docker/**/tailscale/**/*
