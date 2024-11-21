@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  vehicle-detector:
+    platform: linux/arm64 # Specify platform for M1 Mac
+    build:
+      context: ../.. # Root of project
+      dockerfile: docker/data_collection/Dockerfile
+    container_name: vehicle-detector
+    network_mode: "host"
+    ipc: host # Required for Ultralytics as per guide
+    volumes:
+      - ../../data_collection/vehicle_detections:/app/vehicle_detections
+      - ../../data_collection/logs:/app/logs
+    restart: unless-stopped
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "1.0"
+    #       memory: 2G

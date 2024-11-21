@@ -1,0 +1,23 @@
+# Root level docker-compose.yml
+# Only needed to run multiple services in the future
+
+version: "3.8"
+
+services:
+  data-collection:
+    extends:
+      file: ./docker/data-collection/docker-compose.yml
+      service: vehicle-detector
+    profiles: ["data-collection"]
+
+  training:
+    # Future training service configuration
+    profiles: ["training"]
+
+  inference:
+    # Future inference service configuration
+    profiles: ["inference"]
+
+networks:
+  vehicle-detection-network:
+    driver: bridge

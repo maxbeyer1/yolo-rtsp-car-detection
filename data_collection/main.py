@@ -60,8 +60,8 @@ def main():
         detector.start_capture()
 
         # Run until interrupted
-        print(f"Started moving vehicle detection in {
-              'debug' if args.debug else 'production'} mode. Press Ctrl+C to stop...")
+        print(f"Started moving vehicle detection \
+              in {'debug' if args.debug else 'production'} mode. Press Ctrl+C to stop...")
         while True:
             time.sleep(1)
 
