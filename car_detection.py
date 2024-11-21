@@ -2,6 +2,7 @@
 This script demonstrates how to detect moving vehicles in a parking lot using YOLOv11 and OpenCV.
 """
 import os
+import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -9,7 +10,7 @@ import time
 import queue
 import threading
 from collections import deque
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 import cv2
 from ultralytics import YOLO
 import numpy as np
@@ -32,15 +33,19 @@ class MovingVehicleDetector:
         self,
         rtsp_url: str,
         output_dir: str,
+        debug_mode: bool = False,
         confidence_threshold: float = 0.5,
         min_detection_interval: float = 1.0,
         image_size: Tuple[int, int] = (640, 640),
         motion_threshold: float = 0.03,  # Minimum fraction of pixels that must show motion
         motion_history: int = 5  # Number of frames to keep for motion analysis
     ):
-        # Initialize logging
+        self.debug_mode = debug_mode
+        
+        # Initialize logging with different levels based on debug mode
+        logging_level = logging.DEBUG if debug_mode else logging.INFO
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging_level,
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler('vehicle_collector.log'),
@@ -48,6 +53,9 @@ class MovingVehicleDetector:
             ]
         )
         self.logger = logging.getLogger(__name__)
+        
+        # Log debug mode status
+        self.logger.info(f"Running in {'debug' if debug_mode else 'production'} mode")
         
         # Configuration
         self.rtsp_url = rtsp_url
@@ -78,10 +86,14 @@ class MovingVehicleDetector:
         # Motion detection variables
         self.motion_history = deque(maxlen=motion_history)
         
-        # Initialize other variables
         self.last_save_time = 0
         self.frame_queue = queue.Queue(maxsize=30)
         self.is_running = False
+        
+        # Output format variables
+        self.current_car_folder = None
+        self.last_detection_time = 0
+        self.car_event_timeout = 3.0  # Consider it a new car if more than 3 seconds have passed
         
     def start_capture(self):
         """Start the capture process in a separate thread"""
@@ -120,6 +132,20 @@ class MovingVehicleDetector:
                         raise ConnectionError("Failed to read frame")
                     
                     # Resize frame to standard size
+                    #frame = cv2.resize(frame, self.image_size)
+                    
+                    # Get original dimensions
+                    height, width = frame.shape[:2]
+                    
+                    # Calculate crop amount from left (keeping roughly 1680px worth of the original)
+                    # Original ratio: 880:2560 ≈ 0.34375 (wall portion)
+                    crop_ratio = 800 / 2560  # Crop slightly less than the wall portion
+                    crop_pixels = int(width * crop_ratio)
+                    
+                    # Crop from left side
+                    frame = frame[:, crop_pixels:]
+                    
+                    # Now resize to target size (640x640)
                     frame = cv2.resize(frame, self.image_size)
                     
                     # Add frame to queue, skip if queue is full
@@ -235,6 +261,26 @@ class MovingVehicleDetector:
                 continue
             except Exception as e:
                 self.logger.error(f"Frame processing error: {e}")
+                
+    def _create_new_car_folder(self, timestamp: str) -> Path:
+        """
+        Create a new folder structure for a new car detection event
+        
+        Args:
+            timestamp: Timestamp string for folder naming
+            
+        Returns:
+            Path object for the new car folder
+        """
+        # Create main car folder
+        car_folder = self.output_dir / timestamp
+        car_folder.mkdir(parents=True, exist_ok=True)
+        
+        # Create annotated subfolder
+        annotated_folder = car_folder / "annotated"
+        annotated_folder.mkdir(parents=True, exist_ok=True)
+        
+        return car_folder
     
     def _save_detection(self, frame: np.ndarray, result, motion_mask: np.ndarray) -> None:
         """Save detected frame with timestamp and motion visualization
@@ -245,10 +291,21 @@ class MovingVehicleDetector:
             motion_mask: Foreground mask showing motion areas
         """
         try:
+            current_time = time.time()
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             
-            # Save original frame
-            filename = self.output_dir / f"vehicle_{timestamp}.jpg"
+            # Check if this is a new car event
+            if (self.current_car_folder is None or 
+                (current_time - self.last_detection_time) > self.car_event_timeout):
+                # Create new car folder using this timestamp
+                self.current_car_folder = self._create_new_car_folder(timestamp)
+                self.logger.info(f"Started tracking new car event: {timestamp}")
+            
+            # Update last detection time
+            self.last_detection_time = current_time
+            
+            # Save original frame in car folder root
+            filename = self.current_car_folder / f"vehicle_{timestamp}.jpg"
             cv2.imwrite(str(filename), frame)
             
             # Create visualization with both YOLO detections and motion
@@ -259,27 +316,67 @@ class MovingVehicleDetector:
             motion_overlay[motion_mask > 0] = [0, 0, 255]  # Red color
             annotated_frame = cv2.addWeighted(annotated_frame, 1.0, motion_overlay, 0.3, 0)
             
-            # Save annotated frame
-            anno_filename = self.output_dir / f"vehicle_{timestamp}_annotated.jpg"
+            # Save annotated frame in annotated subfolder
+            anno_filename = self.current_car_folder / "annotated" / f"vehicle_{timestamp}_annotated.jpg"
             cv2.imwrite(str(anno_filename), annotated_frame)
             
-            self.logger.info(f"Saved moving vehicle detection: {filename}")
+            self.logger.info(f"Saved detection in {self.current_car_folder.name}: {filename.name}")
+            
+            # If not in debug mode, upload to Roboflow API
+            if not self.debug_mode:
+                self._upload_to_roboflow(frame, timestamp)
             
         except Exception as e:
             self.logger.error(f"Error saving detection: {e}")
+            
+    def _upload_to_roboflow(self, frame: np.ndarray, timestamp: str) -> None:
+        """
+        Upload frame to Roboflow API (placeholder for future implementation)
+        """
+        # TODO: Implement Roboflow API upload
+        self.logger.debug(f"Would upload frame {timestamp} to Roboflow API in production mode")
+        pass
+
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description='Vehicle detection script for parking lot monitoring'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Run in debug mode (local storage only, no API uploads)'
+    )
+    parser.add_argument(
+        '--rtsp-url',
+        type=str,
+        default="rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@camerapi:8554/parking-lot-cam",
+        help='RTSP stream URL'
+    )
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default="vehicle_detections",
+        help='Output directory for detected vehicles'
+    )
+    return parser.parse_args()
 
 def main():
     """
     Main function to start detection
     """
     # Configuration
-    rtsp_url = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@camerapi:8554/parking-lot-cam"
-    output_dir = "vehicle_detections"
+    # rtsp_url = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@camerapi:8554/parking-lot-cam"
+    # output_dir = "vehicle_detections"
+    
+    # Parse command line arguments
+    args = parse_args()
     
     # Initialize detector with optimized parameters for parking lot scenario
     detector = MovingVehicleDetector(
-        rtsp_url=rtsp_url,
-        output_dir=output_dir,
+        rtsp_url=args.rtsp_url,
+        output_dir=args.output_dir,
+        debug_mode=args.debug,
         confidence_threshold=0.5,          # YOLO detection confidence
         min_detection_interval=1.0,        # Minimum time between saved detections
         image_size=(640, 640),            # Standard YOLO input size
@@ -292,7 +389,7 @@ def main():
         detector.start_capture()
         
         # Run until interrupted
-        print("Started moving vehicle detection. Press Ctrl+C to stop...")
+        print(f"Started moving vehicle detection in {'debug' if args.debug else 'production'} mode. Press Ctrl+C to stop...")
         while True:
             time.sleep(1)
             
