@@ -243,3 +243,6 @@ docker/**/tailscale/**/*
 
 # Repomix outputs
 repomix-output.xml
+
+# Ignore all .pem files (EC2 key pairs)
+*.pem
