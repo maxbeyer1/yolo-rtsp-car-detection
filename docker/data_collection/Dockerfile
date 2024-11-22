@@ -6,15 +6,15 @@ WORKDIR /app
 
 # Install additional system dependencies
 # Install EPEL repository first
-RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
-    yum update -y && \
-    yum install -y \
+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
+    dnf update -y && \
+    dnf install -y \
         mesa-libGL \
         glib2 \
         python3-devel \
         gcc \
-    && yum clean all \
-    && rm -rf /var/cache/yum
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
 
 # Copy requirements first to leverage Docker cache
 COPY data_collection/requirements.txt .
