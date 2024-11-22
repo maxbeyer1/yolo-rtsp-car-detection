@@ -1,15 +1,22 @@
-import psutil
+"""
+Module to collect system metrics in the background.
+"""
 import time
 import threading
 import logging
 from datetime import datetime
-from pathlib import Path
 import json
 from typing import Dict, List
+from pathlib import Path
 import numpy as np
+import psutil
 
 
 class SystemMetricsCollector:
+    """
+    Class to collect system metrics in the background
+    """
+
     def __init__(self, output_dir: Path, sample_interval: float = 1.0):
         self.output_dir = output_dir / "metrics"
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -22,11 +29,13 @@ class SystemMetricsCollector:
         self.processing_times: List[float] = []
 
     def start(self):
+        """Start collecting system metrics"""
         self.is_running = True
         self.collection_thread = threading.Thread(target=self._collect_metrics)
         self.collection_thread.start()
 
     def stop(self):
+        """Stop collecting system metrics"""
         self.is_running = False
         if hasattr(self, 'collection_thread'):
             self.collection_thread.join()
@@ -37,6 +46,7 @@ class SystemMetricsCollector:
         self.processing_times.append(duration)
 
     def _collect_metrics(self):
+        """Collect system metrics in the background"""
         while self.is_running:
             try:
                 metrics = {
@@ -70,6 +80,7 @@ class SystemMetricsCollector:
             time.sleep(self.sample_interval)
 
     def _save_metrics(self):
+        """Save collected metrics to a JSON file"""
         if not self.metrics_buffer:
             return
 

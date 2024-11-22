@@ -8,13 +8,15 @@ import queue
 import threading
 from pathlib import Path
 from typing import Tuple
+import shutil
+from datetime import datetime
 from roboflow import Roboflow
 from ultralytics import YOLO
 import cv2
 import numpy as np
 
 from src.detector.motion_detector import MotionDetector
-from src.detector.utils import create_car_folder, get_timestamp
+from src.detector.utils import create_car_folder, get_timestamp, get_timestamps_in_folder
 from src.config.settings import (
     FRAME_QUEUE_SIZE,
     CAR_EVENT_TIMEOUT,
@@ -49,6 +51,11 @@ class MovingVehicleDetector:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Running in %s mode",
                          ('debug' if debug_mode else 'production'))
+
+        # Initialize threads
+        self.capture_thread = None
+        self.process_thread = None
+        self.cleanup_thread = None
 
         # Configuration
         self.rtsp_url = rtsp_url
@@ -94,15 +101,27 @@ class MovingVehicleDetector:
         # Initialize system metrics collector for debugging
         self.metrics_collector = SystemMetricsCollector(self.output_dir)
 
+    def _run_cleanup(self):
+        """Periodic cleanup task"""
+        while self.is_running:
+            try:
+                self._cleanup_old_detections()
+            except Exception as e:
+                self.logger.error(f"Error during cleanup: {e}")
+            # time.sleep(3600)  # Run every hour
+            time.sleep(120)  # Run every 2 minutes for testing
+
     def start_capture(self):
         """Start the capture process in a separate thread"""
         self.is_running = True
         self.metrics_collector.start()  # Start metrics collection
         self.capture_thread = threading.Thread(target=self._capture_frames)
         self.process_thread = threading.Thread(target=self._process_frames)
+        self.cleanup_thread = threading.Thread(target=self._run_cleanup)
 
         self.capture_thread.start()
         self.process_thread.start()
+        self.cleanup_thread.start()
 
     def stop_capture(self):
         """Stop the capture process"""
@@ -112,6 +131,8 @@ class MovingVehicleDetector:
             self.capture_thread.join()
         if hasattr(self, 'process_thread'):
             self.process_thread.join()
+        if hasattr(self, 'cleanup_thread'):
+            self.cleanup_thread.join()
 
     def _capture_frames(self):
         """Capture frames from RTSP stream"""
@@ -209,8 +230,9 @@ class MovingVehicleDetector:
 
             self.last_detection_time = current_time
 
+            encode_params = [cv2.IMWRITE_JPEG_QUALITY, 85]
             filename = self.current_car_folder / f"vehicle_{timestamp}.jpg"
-            cv2.imwrite(str(filename), frame)
+            cv2.imwrite(str(filename), frame, encode_params)
 
             annotated_frame = result.plot()
             motion_overlay = np.zeros_like(annotated_frame)
@@ -231,6 +253,29 @@ class MovingVehicleDetector:
         except Exception as e:
             self.logger.error("Error saving detection: %s", e)
 
+    def _cleanup_old_detections(self, max_age_days=7):
+        """Remove processed images older than max_age_days that are confirmed uploaded"""
+        current_time = time.time()
+
+        for car_folder in self.output_dir.iterdir():
+            if car_folder.is_dir() and car_folder.name != "metrics":
+                folder_time = datetime.strptime(
+                    car_folder.name, "%Y%m%d_%H%M%S_%f").timestamp()
+
+                # if (current_time - folder_time) > (max_age_days * 24 * 3600):
+                # for testing - 1 minute instead of 7 days
+                if (current_time - folder_time) > (60):
+                    # Only delete if confirmed uploaded to Roboflow
+                    if all((car_folder / f"{ts}.uploaded").exists()
+                           for ts in get_timestamps_in_folder(car_folder)):
+                        try:
+                            shutil.rmtree(car_folder)
+                            self.logger.info(
+                                "Cleaned up %s", car_folder.name)
+                        except Exception as e:
+                            self.logger.error(
+                                "Failed to clean up %s: %s", car_folder.name, e)
+
     def _upload_to_roboflow(self, frame: np.ndarray, timestamp: str) -> None:
         """Upload frame to Roboflow API with retry mechanism"""
         if not self.roboflow_project:
@@ -245,6 +290,9 @@ class MovingVehicleDetector:
             )
             self.logger.info(
                 "Successfully uploaded image %s to Roboflow", timestamp)
+
+            # Mark as uploaded (could use a simple .uploaded file or database)
+            (self.current_car_folder / f"{timestamp}.uploaded").touch()
 
         except Exception as e:
             self.logger.error(
