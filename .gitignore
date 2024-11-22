@@ -240,3 +240,6 @@ pyrightconfig.json
 
 # Ignore Tailscale Docker sidecar config and state files
 docker/**/tailscale/**/*
+
+# Repomix outputs
+repomix-output.xml

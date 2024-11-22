@@ -22,6 +22,7 @@ from src.config.settings import (
     MAX_CAPTURE_RETRIES,
     CAPTURE_RETRY_DELAY
 )
+from src.monitoring.system_metrics import SystemMetricsCollector
 
 
 class MovingVehicleDetector:
@@ -90,9 +91,13 @@ class MovingVehicleDetector:
         self.current_car_folder = None
         self.last_detection_time = 0
 
+        # Initialize system metrics collector for debugging
+        self.metrics_collector = SystemMetricsCollector(self.output_dir)
+
     def start_capture(self):
         """Start the capture process in a separate thread"""
         self.is_running = True
+        self.metrics_collector.start()  # Start metrics collection
         self.capture_thread = threading.Thread(target=self._capture_frames)
         self.process_thread = threading.Thread(target=self._process_frames)
 
@@ -102,6 +107,7 @@ class MovingVehicleDetector:
     def stop_capture(self):
         """Stop the capture process"""
         self.is_running = False
+        self.metrics_collector.stop()  # Stop and save metrics
         if hasattr(self, 'capture_thread'):
             self.capture_thread.join()
         if hasattr(self, 'process_thread'):
@@ -154,6 +160,8 @@ class MovingVehicleDetector:
         """Process frames for moving vehicle detection"""
         while self.is_running:
             try:
+                start_time = time.time()
+
                 frame = self.frame_queue.get(timeout=1.0)
                 motion_detected, motion_mask = self.motion_detector.detect_motion(
                     frame)
@@ -177,6 +185,9 @@ class MovingVehicleDetector:
                         if moving_cars and (current_time - self.last_save_time) >= self.min_detection_interval:
                             self._save_detection(frame, result, motion_mask)
                             self.last_save_time = current_time
+
+                processing_time = time.time() - start_time
+                self.metrics_collector.record_processing_time(processing_time)
 
             except queue.Empty:
                 continue
