@@ -5,16 +5,10 @@ FROM ultralytics/ultralytics:latest-arm64
 WORKDIR /app
 
 # Install additional system dependencies
-# Install EPEL repository first
-RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
-    dnf update -y && \
-    dnf install -y \
-        mesa-libGL \
-        glib2 \
-        python3-devel \
-        gcc \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
 COPY data_collection/requirements.txt .
