@@ -1,14 +1,20 @@
 # Start with the official Ultralytics CPU image as base
-FROM --platform=linux/arm64 ultralytics/ultralytics:latest-cpu
+FROM ultralytics/ultralytics:latest-cpu
 
 # Set working directory
 WORKDIR /app
 
 # Install additional system dependencies
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# Install EPEL repository first
+RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm && \
+    yum update -y && \
+    yum install -y \
+        mesa-libGL \
+        glib2 \
+        python3-devel \
+        gcc \
+    && yum clean all \
+    && rm -rf /var/cache/yum
 
 # Copy requirements first to leverage Docker cache
 COPY data_collection/requirements.txt .
