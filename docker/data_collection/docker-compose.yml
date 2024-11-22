@@ -27,7 +27,7 @@ services:
 
   # Vehicle Detector Service
   vehicle-detector:
-    platform: linux/arm64
+    # platform: linux/arm64
     build:
       context: ../.. # This one stays as ../.. to reach the root
       dockerfile: docker/data_collection/Dockerfile
