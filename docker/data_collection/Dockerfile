@@ -1,5 +1,5 @@
 # Start with the official Ultralytics CPU image as base
-FROM ultralytics/ultralytics:latest-cpu
+FROM ultralytics/ultralytics:latest-arm64
 
 # Set working directory
 WORKDIR /app
