@@ -108,8 +108,7 @@ class MovingVehicleDetector:
                 self._cleanup_old_detections()
             except Exception as e:
                 self.logger.error(f"Error during cleanup: {e}")
-            # time.sleep(3600)  # Run every hour
-            time.sleep(120)  # Run every 2 minutes for testing
+            time.sleep(3600)  # Run every hour
 
     def start_capture(self):
         """Start the capture process in a separate thread"""
@@ -262,9 +261,7 @@ class MovingVehicleDetector:
                 folder_time = datetime.strptime(
                     car_folder.name, "%Y%m%d_%H%M%S_%f").timestamp()
 
-                # if (current_time - folder_time) > (max_age_days * 24 * 3600):
-                # for testing - 1 minute instead of 7 days
-                if (current_time - folder_time) > (60):
+                if (current_time - folder_time) > (max_age_days * 24 * 3600):
                     # Only delete if confirmed uploaded to Roboflow
                     if all((car_folder / f"{ts}.uploaded").exists()
                            for ts in get_timestamps_in_folder(car_folder)):
