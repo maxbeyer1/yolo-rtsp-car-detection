@@ -178,13 +178,21 @@ class MovingVehicleDetector:
 
     def _process_frames(self):
         """Process frames for moving vehicle detection"""
+        consecutive_detections = 0
+        frame_count = 0
+
         while self.is_running:
             try:
                 start_time = time.time()
+                frame_count += 1
 
                 frame = self.frame_queue.get(timeout=1.0)
-                motion_detected, motion_mask = self.motion_detector.detect_motion(
+                motion_detected, motion_mask, motion_debug = self.motion_detector.detect_motion(
                     frame)
+
+                if frame_count % 30 == 0:  # Log every 30 frames
+                    self.logger.debug(
+                        "Frame %d - Motion debug: %s", frame_count, motion_debug)
 
                 if motion_detected:
                     results = self.model(frame, verbose=False)
@@ -195,14 +203,52 @@ class MovingVehicleDetector:
                             if box.cls == 2 and box.conf >= self.confidence_threshold
                         ]
 
-                        moving_cars = []
-                        for box in car_detections:
-                            bbox = box.xyxy[0].cpu().numpy()
-                            if self.motion_detector.is_vehicle_moving(bbox, motion_mask):
-                                moving_cars.append(box)
+                        # moving_cars = []
+                        # for box in car_detections:
+                        #     bbox = box.xyxy[0].cpu().numpy()
+                        #     if self.motion_detector.is_vehicle_moving(bbox, motion_mask):
+                        #         moving_cars.append(box)
+
+                        # current_time = time.time()
+                        # if moving_cars and (current_time - self.last_save_time) >= self.min_detection_interval:
+                        #     self._save_detection(frame, result, motion_mask)
+                        #     self.last_save_time = current_time
+
+                        if car_detections:
+                            self.logger.debug("Frame %d - Detected %d vehicles",
+                                              frame_count, len(car_detections))
+
+                            for i, box in enumerate(car_detections):
+                                conf = float(box.conf)
+                                bbox = box.xyxy[0].cpu().numpy()
+
+                                is_moving, motion_info = self.motion_detector.is_vehicle_moving(
+                                    bbox, motion_mask)
+
+                                self.logger.debug(
+                                    "Frame %d - Vehicle %d: confidence=%.3f, motion_info=%s",
+                                    frame_count, i, conf, motion_info
+                                )
+
+                                if is_moving:
+                                    consecutive_detections += 1
+                                    self.logger.info(
+                                        "Frame %d - Moving vehicle detected! consecutive_detections=%d",
+                                        frame_count, consecutive_detections
+                                    )
+                                else:
+                                    consecutive_detections = max(
+                                        0, consecutive_detections - 1)
+                        else:
+                            consecutive_detections = max(
+                                0, consecutive_detections - 1)
 
                         current_time = time.time()
-                        if moving_cars and (current_time - self.last_save_time) >= self.min_detection_interval:
+                        if consecutive_detections >= 2 and (current_time - self.last_save_time) >= self.min_detection_interval:
+                            self.logger.info(
+                                "Frame %d - Saving detection (consecutive_detections=%d)",
+                                frame_count, consecutive_detections
+                            )
                             self._save_detection(frame, result, motion_mask)
                             self.last_save_time = current_time
 

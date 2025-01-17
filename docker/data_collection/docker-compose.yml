@@ -29,7 +29,7 @@ services:
   vehicle-detector:
     # platform: linux/arm64
     build:
-      context: ../.. # This one stays as ../.. to reach the root
+      context: ../..
       dockerfile: docker/data_collection/Dockerfile
     container_name: vehicle-detector
     network_mode: service:tailscale-vehicle-detector
