@@ -3,7 +3,8 @@ Configuration settings for the vehicle detection system.
 """
 # Default configurations
 # DEFAULT_RTSP_URL = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@camerapi:8554/parking-lot-cam"
-DEFAULT_RTSP_URL = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@100.103.159.23:8554/parking-lot-cam"
+# DEFAULT_RTSP_URL = "rtsp://wb:vQ7E4HiVkwr17bQqX2ild7XlAFvFhfUoqulBwSYm@100.103.159.23:8554/parking-lot-cam"
+DEFAULT_RTSP_URL = "rtsp://24.30.252.59/axis-media/media.amp?camera=1&videoframeskipmode=empty&videozprofile=classic&resolution=1280x720&timestamp=1&videocodec=h264"
 DEFAULT_OUTPUT_DIR = "vehicle_detections"
 
 # Detection settings
