@@ -225,10 +225,10 @@ class MovingVehicleDetector:
                                 is_moving, motion_info = self.motion_detector.is_vehicle_moving(
                                     bbox, motion_mask)
 
-                                self.logger.debug(
-                                    "Frame %d - Vehicle %d: confidence=%.3f, motion_info=%s",
-                                    frame_count, i, conf, motion_info
-                                )
+                                # self.logger.debug(
+                                #     "Frame %d - Vehicle %d: confidence=%.3f, motion_info=%s",
+                                #     frame_count, i, conf, motion_info
+                                # )
 
                                 if is_moving:
                                     consecutive_detections += 1
