@@ -67,7 +67,13 @@ The system is specifically optimized for parking lot scenarios where accurate ve
 
 2. Create a `.env` file in the `data_collection` directory with your credentials
 
-3. Build and run the container:
+3. (Optional) If you want to use Tailscale, create a `.env` file in the `docker/data-collection` directory with the following content:
+
+   ```
+   TS_AUTH_KEY=your_tailscale_auth_key
+   ```
+
+4. Build and run the container:
    ```bash
    docker-compose --profile data-collection up -d
    ```
