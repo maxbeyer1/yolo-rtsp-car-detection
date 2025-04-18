@@ -23,6 +23,7 @@ The system is specifically optimized for parking lot scenarios where accurate ve
 - **System Monitoring**: Built-in system metrics collection for performance monitoring
 - **Containerized Deployment**: Docker support for easy deployment across environments
 - **Configurable Parameters**: Extensive configuration options for different scenarios
+- **Tailscale Integration**: Secure networking solution that enables remote connections to edge devices (cameras) through private networks
 
 ## System Requirements
 
